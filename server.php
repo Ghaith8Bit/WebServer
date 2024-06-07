@@ -1,5 +1,7 @@
 <?php
 
+use Ghaith8bit\WebServer\Server;
+
 require_once 'bootstrap.php';
 
 $port = $argv[1] ?? $_ENV['PORT'] ?? 8000;
