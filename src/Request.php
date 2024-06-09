@@ -14,7 +14,7 @@ class Request
         $this->method = strtoupper($method);
         $this->headers = $headers;
 
-        list($this->uri, $params) = explode('?', $uri, 2);
+        @list($this->uri, $params) = explode('?', $uri, 2);
         parse_str($params ?? '', $this->parameters);
     }
 
