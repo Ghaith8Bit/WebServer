@@ -8,17 +8,28 @@ class Request
     protected $uri = null;
     protected $parameters = [];
     protected $headers = [];
+    protected $body = null;
 
-    private function __construct($method, $uri, $headers = [])
+    private function __construct($method, $uri, $headers = [], $body = null)
     {
         $this->method = strtoupper($method);
         $this->headers = $headers;
 
         @list($this->uri, $params) = explode('?', $uri, 2);
         parse_str($params ?? '', $this->parameters);
+        $this->body = $body;
     }
 
-    public static function withHeaderString($headerString)
+    public static function fromRequestString($requestString)
+    {
+        $headerBody = explode("\r\n\r\n", $requestString, 2);
+        $headerString = $headerBody[0];
+        $body = $headerBody[1] ?? null;
+
+        return self::withHeaderString($headerString, $body);
+    }
+
+    public static function withHeaderString($headerString, $body = null)
     {
         $lines = explode("\n", $headerString);
 
@@ -44,7 +55,7 @@ class Request
             }
         }
 
-        return new self($method, $uri, $headers);
+        return new self($method, $uri, $headers, $body);
     }
 
     public function method()
@@ -65,5 +76,10 @@ class Request
     public function header($key, $default = null)
     {
         return $this->headers[$key] ?? $default;
+    }
+
+    public function body()
+    {
+        return $this->body;
     }
 }

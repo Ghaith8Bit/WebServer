@@ -27,7 +27,7 @@ class Server
             throw new \RuntimeException("Failed to listen on socket: $errorMessage");
         }
 
-        echo "Server is listening on {$this->host}:{$this->port}\n";
+        echo "Server is listening on http://{$this->host}:{$this->port}\n";
 
         while (1) {
 
@@ -59,7 +59,7 @@ class Server
 
             echo "Request received: $requestString\n";
 
-            $request = Request::withHeaderString($requestString);
+            $request = Request::fromRequestString($requestString);
             $response = call_user_func($callback, $request);
 
             if (!$response instanceof Response) {
