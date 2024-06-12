@@ -27,22 +27,37 @@ class Server
             throw new \RuntimeException("Failed to listen on socket: $errorMessage");
         }
 
+        echo "Server is listening on {$this->host}:{$this->port}\n";
+
         while (1) {
 
+
             $client = @socket_accept($this->socket);
+
             if ($client === false) {
                 $errorMessage = socket_strerror(socket_last_error($this->socket));
                 echo "Failed to accept connection: $errorMessage\n";
                 continue;
             }
 
-            $requestString = socket_read($client, 1024, PHP_NORMAL_READ);
+            echo "Connection accepted\n";
+
+            $requestString = '';
+            while ($chunk = @socket_read($client, 1024)) {
+                $requestString .= $chunk;
+                if (strpos($chunk, "\r\n\r\n") !== false) {
+                    break;
+                }
+            }
+
             if ($requestString === false) {
                 $errorMessage = socket_strerror(socket_last_error($client));
                 echo "Failed to read request: $errorMessage\n";
                 socket_close($client);
                 continue;
             }
+
+            echo "Request received: $requestString\n";
 
             $request = Request::withHeaderString($requestString);
             $response = call_user_func($callback, $request);
@@ -53,7 +68,9 @@ class Server
 
             $responseString = (string) $response;
             socket_write($client, $responseString, strlen($responseString));
+            echo "Response sent: $responseString\n";
             socket_close($client);
+            echo "Connection closed\n";
         }
     }
 
