@@ -43,11 +43,13 @@ class Server
             echo "Connection accepted\n";
 
             $requestString = '';
-            while ($chunk = @socket_read($client, 1024)) {
+            $chunk = socket_read($client, 2048);
+            while ($chunk !== false) {
                 $requestString .= $chunk;
-                if (strpos($chunk, "\r\n\r\n") !== false) {
+                if (strpos($requestString, "\r\n\r\n") !== false) {
                     break;
                 }
+                $chunk = socket_read($client, 2048);
             }
 
             if ($requestString === false) {
