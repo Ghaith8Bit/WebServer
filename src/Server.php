@@ -2,64 +2,49 @@
 
 namespace Ghaith8bit\WebServer;
 
+use Socket;
+
 class Server
 {
-    protected $socket;
-    protected $host;
-    protected $port;
+    use SocketOperations;
 
-    public function __construct($host, $port)
+    protected Socket $socket;
+    protected string $host;
+    protected int $port;
+
+    public function __construct(string $host, int $port)
     {
         $this->host = $host;
         $this->port = $port;
         $this->socket = $this->createSocket();
-        $this->bindSocket();
+        $this->bindSocket($this->socket, $this->host, $this->port);
     }
 
-    public function listen($callback)
+    public function listen(callable $callback): void
     {
         if (!is_callable($callback)) {
             throw new \InvalidArgumentException('The given argument should be callable.');
         }
 
-        if (!socket_listen($this->socket)) {
-            $errorMessage = socket_strerror(socket_last_error($this->socket));
-            throw new \RuntimeException("Failed to listen on socket: $errorMessage");
-        }
+        $this->listenSocket($this->socket);
+
 
         echo "Server is listening on http://{$this->host}:{$this->port}\n";
 
         while (1) {
 
+            $client = $this->acceptSocket($this->socket);
 
-            $client = @socket_accept($this->socket);
-
-            if ($client === false) {
-                $errorMessage = socket_strerror(socket_last_error($this->socket));
-                echo "Failed to accept connection: $errorMessage\n";
+            if (!$client) {
                 continue;
             }
 
-            echo "Connection accepted\n";
 
-            $requestString = '';
-            $chunk = socket_read($client, 2048);
-            while ($chunk !== false) {
-                $requestString .= $chunk;
-                if (strpos($requestString, "\r\n\r\n") !== false) {
-                    break;
-                }
-                $chunk = socket_read($client, 2048);
-            }
+            $requestString = $this->readSocket($client);
 
-            if ($requestString === false) {
-                $errorMessage = socket_strerror(socket_last_error($client));
-                echo "Failed to read request: $errorMessage\n";
-                socket_close($client);
+            if (!$requestString) {
                 continue;
             }
-
-            echo "Request received: $requestString\n";
 
             $request = Request::fromRequestString($requestString);
             $response = call_user_func($callback, $request);
@@ -68,38 +53,13 @@ class Server
                 $response = Response::error(404);
             }
 
-            $responseString = (string) $response;
-            socket_write($client, $responseString, strlen($responseString));
-            echo "Response sent: $responseString\n";
-            socket_close($client);
-            echo "Connection closed\n";
-        }
-    }
-
-    protected function createSocket()
-    {
-        $socket = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-
-        if ($socket === false) {
-            $errorMessage = socket_strerror(socket_last_error());
-            throw new \RuntimeException("Failed to create socket: $errorMessage");
-        }
-
-        return $socket;
-    }
-
-    protected function bindSocket()
-    {
-        if (!socket_bind($this->socket, $this->host, $this->port)) {
-            $errorMessage = socket_strerror(socket_last_error($this->socket));
-            throw new \RuntimeException("Failed to bind socket to $this->host:$this->port: $errorMessage");
+            $this->writeSocket($client, $response);
+            $this->closeSocket($client);
         }
     }
 
     public function __destruct()
     {
-        if ($this->socket !== null) {
-            socket_close($this->socket);
-        }
+        self::closeSocket($this->socket);
     }
 }
